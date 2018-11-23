@@ -82,6 +82,7 @@ int getTextFromAudio(const char* domain, int packageSize, const char* audioFile)
     FILE *fp = NULL;
     fp = fopen(audioFile, "r");
     if (NULL == fp) {
+        printf("open audio file %s failed!\n", audioFile);
         return -1;
     }
     fseek(fp, 0, SEEK_END);
