@@ -1,0 +1,4 @@
+build/*
+.vscode/*
+.cup/*
+.DS_Store
