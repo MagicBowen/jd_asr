@@ -2,16 +2,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include<sys/time.h>
+#include <sys/time.h>
 #include "curl/curl.h"
 #include "curl/easy.h"
 #include "uuid/uuid.h"
 
 #define MAX_BUFFER_SIZE 512
-
 #define MAX_BODY_SIZE 1000000
+
 int g_package_size = 32000;
 struct timeval g_start, g_end;
+
 static size_t writefunc(void *ptr, size_t size, size_t nmemb, char **result) {
     gettimeofday(&g_end, NULL);
     printf("recv-send=%ld ms\n", (g_end.tv_sec-g_start.tv_sec)*1000+(g_end.tv_usec-g_start.tv_usec)/1000);
@@ -27,10 +28,10 @@ static size_t writefunc(void *ptr, size_t size, size_t nmemb, char **result) {
     return result_len;
 }
 
-static void sendReq(char *domain, char *appid, char *reqid, int seqid, char *property, char *audiodata, int content_len) {
+static void sendReq(const char *domain, const char *appid, char *reqid, int seqid, char *property, char *audiodata, int content_len) {
     char host[MAX_BUFFER_SIZE];
     memset(host, 0, sizeof(host));
-    snprintf(host, sizeof(host), "%s", "aiasr.jd.com/voice");
+    snprintf(host, sizeof(host), "%s", "http://asrapi-base.jd.com/asr");
     char tmp[MAX_BUFFER_SIZE];
     memset(tmp, 0, sizeof(tmp));
     CURL *curl;
@@ -49,7 +50,7 @@ static void sendReq(char *domain, char *appid, char *reqid, int seqid, char *pro
     headerlist = curl_slist_append(headerlist, tmp);
     snprintf(tmp, sizeof(tmp), "Net-State:%d", 2);
     headerlist = curl_slist_append(headerlist, tmp);
-    snprintf(tmp, sizeof(tmp), "Applicator:%d", 0);
+    snprintf(tmp, sizeof(tmp), "Applicator:%d", 1);
 
     headerlist = curl_slist_append(headerlist, tmp);
     if (seqid==-1||seqid==1) {        
@@ -77,13 +78,9 @@ static void sendReq(char *domain, char *appid, char *reqid, int seqid, char *pro
     curl_easy_cleanup(curl);
 }
 
-int main (int argc,char* argv[]) {
-    if (argc != 4) {
-        printf("Usage: %s domain package_size audio_file\n", argv[0]);
-        return -1;
-    }
+int getTextFromAudio(const char* domain, int packageSize, const char* audioFile) {
     FILE *fp = NULL;
-    fp = fopen(argv[3], "r");
+    fp = fopen(audioFile, "r");
     if (NULL == fp) {
         return -1;
     }
@@ -92,7 +89,6 @@ int main (int argc,char* argv[]) {
     fseek(fp, 0, SEEK_SET);
     char *audiodata = (char *)malloc(content_len);
     fread(audiodata, content_len, sizeof(char), fp);
-    char *domain = argv[1];
     char reqid[64];
     uuid_t uuid;
     uuid_generate(uuid);
@@ -102,7 +98,7 @@ int main (int argc,char* argv[]) {
     memset(tmp, 0, sizeof(tmp));
     snprintf(tmp, sizeof(tmp), "%s", "{\"autoend\":false,\"encode\":{\"channel\":1,\"format\":\"wav\",\"sample_rate\":16000},\"platform\":\"Linux\",\"version\":\"0.0.0.1\"}");
 
-    g_package_size = atoi(argv[2]);
+    g_package_size = packageSize;
     if (g_package_size <= 0) {
         printf("package_size <= 0!\n");
         return 0;
@@ -117,7 +113,7 @@ int main (int argc,char* argv[]) {
         usleep(1000*package_len/32);
         seqid = g_package_size<content_len-pos?seqid:-seqid;
         memcpy(package_data, audiodata+pos, package_len);
-        sendReq(domain, "linux_demo", reqid, seqid, tmp, package_data, package_len);
+        sendReq(domain, "25822d6f-e247-4ff1-9e2a-7bc5526eb5b7", reqid, seqid, tmp, package_data, package_len);
     }
 
     fclose(fp);
@@ -125,3 +121,15 @@ int main (int argc,char* argv[]) {
     free(package_data);
     return 0;
 }
+
+#ifdef ENABLE_TEST
+
+int main (int argc,char* argv[]) {
+    if (argc != 4) {
+        printf("Usage: %s domain package_size audio_file\n", argv[0]);
+        return -1;
+    }
+    return getTextFromAudio(argv[1], atoi(argv[2]), argv[3]);
+}
+
+#endif
